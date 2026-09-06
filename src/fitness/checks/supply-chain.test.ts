@@ -224,3 +224,41 @@ describe('actions pinning', () => {
     expect(result?.actual).toBe('ワークフロー無し（計測不能）');
   });
 });
+
+/**
+ * 壊れた manifest の扱い。
+ *
+ * 例外を投げるとレポートごと失われ、空として飛ばすと「依存 0 件 = 違反なし」で
+ * 緑になる。どちらも避けて、読めないこと自体を違反として立てているかを見る。
+ */
+describe('読めない package.json', () => {
+  it('ルートが壊れていても例外にせず、dependency pinning を FAIL にする', () => {
+    const root = healthyRepo({ 'package.json': '{ "devDependencies": ' });
+    const result = resultsOf(root).get('dependency pinning');
+
+    expect(result?.ok).toBe(false);
+    expect(result?.details?.some((line) => line.includes('読めない'))).toBe(true);
+  });
+
+  it('ルートが壊れていれば install policy も FAIL にする', () => {
+    const root = healthyRepo({ 'package.json': 'not json at all' });
+    const result = resultsOf(root).get('install policy');
+
+    expect(result?.ok).toBe(false);
+    expect(result?.details).toContain('package.json が JSON オブジェクトとして読めない');
+  });
+
+  it('ワークスペースの package.json が壊れていても検出する', () => {
+    const root = healthyRepo({ 'packages/domain/package.json': '{ oops' });
+    const result = resultsOf(root).get('dependency pinning');
+
+    expect(result?.ok).toBe(false);
+    expect(result?.details?.some((line) => line.includes('domain'))).toBe(true);
+  });
+
+  it('JSON 配列は「オブジェクトとして読めない」として扱う', () => {
+    const root = healthyRepo({ 'package.json': '[]' });
+
+    expect(resultsOf(root).get('dependency pinning')?.ok).toBe(false);
+  });
+});

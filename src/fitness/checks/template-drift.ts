@@ -25,12 +25,8 @@ function failure(actual: string, details: readonly string[]): CheckResult {
 }
 
 function readOrigin(path: string): Origin | null {
-  try {
-    const json = readJson(path);
-    return { template: json['template'], ref: json['ref'] };
-  } catch {
-    return null;
-  }
+  const json = readJson(path);
+  return json === null ? null : { template: json['template'], ref: json['ref'] };
 }
 
 /** 申告そのものの不備。`template` が無い / `ref` が固定になっていない。 */
@@ -50,10 +46,25 @@ function originProblems(origin: Origin): string[] {
 function toolingSpecs(context: FitnessContext): { manifest: string; spec: string }[] {
   return listManifests(context.root, context.sourceRoots).flatMap((manifest) => {
     const json = readJson(manifest);
+    if (json === null) {
+      return [];
+    }
     return DEPENDENCY_FIELDS.map((field) => asStringRecord(json[field])[TOOLING_PACKAGE])
       .filter((spec): spec is string => spec !== undefined)
       .map((spec) => ({ manifest, spec }));
   });
+}
+
+/**
+ * JSON として読めない manifest。
+ *
+ * `toolingSpecs` から黙って除くと、世代がずれた manifest が読めなくなった瞬間に
+ * 「世代は 1 種類」で緑になる。読めないこと自体を不備として立てる。
+ */
+function unreadableManifests(context: FitnessContext): string[] {
+  return listManifests(context.root, context.sourceRoots)
+    .filter((manifest) => readJson(manifest) === null)
+    .map((manifest) => `${manifest} が JSON オブジェクトとして読めない`);
 }
 
 /**
@@ -96,7 +107,11 @@ export function checkTemplateDrift(context: FitnessContext = defaultContext()): 
   if (origin === null) {
     return [failure('出自を読めない', [`${ORIGIN_FILE} が JSON オブジェクトとして読めない`])];
   }
-  const problems = [...originProblems(origin), ...mixedGenerationProblems(context)];
+  const problems = [
+    ...originProblems(origin),
+    ...unreadableManifests(context),
+    ...mixedGenerationProblems(context),
+  ];
   if (problems.length > 0) {
     return [failure(`${problems.length} 件の不備`, problems.slice(0, MAX_DETAILS))];
   }

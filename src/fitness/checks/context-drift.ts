@@ -14,11 +14,28 @@ const SKILLS_DIRECTORY = join('.claude', 'skills');
 const MARKDOWN_LINK = /\]\(\s*<?([^\s)>]+)>?(?:\s+"[^"]*")?\s*\)/gu;
 
 /**
- * バッククォートで囲まれた、リポジトリルート起点に見えるパス。
- * 先頭をワークスペースのディレクトリ名に限っているのは、`/api/rpc` のような
- * URL や `<resource>.ts` のようなプレースホルダを拾わないため。
+ * ソースの置き場ではないが、文書がルート起点のパスとして書く場所。
+ * `sourceRoots` に足して、バッククォートパスの先頭セグメントとして許す。
  */
-const BACKTICK_PATH = /`((?:\.claude|apps|packages|tooling|scripts|docs)\/[A-Za-z0-9._/-]+)`/gu;
+const DOCUMENT_DIRECTORIES = ['.claude', 'docs'] as const;
+
+/**
+ * バッククォートで囲まれた、リポジトリルート起点に見えるパス。
+ * 先頭をディレクトリ名に限っているのは、`/api/rpc` のような URL や
+ * `<resource>.ts` のようなプレースホルダを拾わないため。
+ *
+ * 先頭セグメントを決め打ちにすると、レイアウトの違う派生（`src` にまとめている等）で
+ * **文書の主要な参照が丸ごと検査対象から外れ、黙って PASS になる**。
+ * A 層は形を知らないので `sourceRoots` から組み立てる。
+ */
+function backtickPathPattern(sourceRoots: readonly string[]): RegExp {
+  const heads = [...new Set([...DOCUMENT_DIRECTORIES, ...sourceRoots])]
+    .map((name) => name.replaceAll(/[$()*+.?[\\\]^{|}]/gu, String.raw`\$&`))
+    .join('|');
+  // バッククォートは正規表現の構文文字ではないので、`u` フラグ下では
+  // エスケープすると Invalid escape になる。素の文字として置く。
+  return new RegExp(`\`((?:${heads})/[A-Za-z0-9._/-]+)\``, 'gu');
+}
 
 /**
  * バッククォートで囲まれた、リポジトリルート直下の設定ファイル。
@@ -86,14 +103,15 @@ function captures(text: string, pattern: RegExp): string[] {
 }
 
 /** 文書が参照しているファイルパスのうち、実在しないものを返す。 */
-function missingPaths(root: string, document: string): string[] {
+function missingPaths(root: string, document: string, sourceRoots: readonly string[]): string[] {
   const text = readFileSync(document, 'utf8');
   const links = captures(text, MARKDOWN_LINK)
     .filter((target) => !isExternal(target))
     .map((target) => resolve(dirname(document), target.split('#')[0] ?? ''));
-  const backticked = [...captures(text, BACKTICK_PATH), ...captures(text, BACKTICK_ROOT_FILE)].map(
-    (target) => resolve(root, target),
-  );
+  const backticked = [
+    ...captures(text, backtickPathPattern(sourceRoots)),
+    ...captures(text, BACKTICK_ROOT_FILE),
+  ].map((target) => resolve(root, target));
 
   return [...new Set([...links, ...backticked])]
     .filter((target) => !existsSync(target))
@@ -212,7 +230,7 @@ export function checkContextDrift(context: FitnessContext = defaultContext()): C
   const details = documents.flatMap((document) => {
     const label = relative(context.root, document).replaceAll('\\', '/');
     const broken = [
-      ...missingPaths(context.root, document),
+      ...missingPaths(context.root, document, context.sourceRoots),
       ...missingScripts(context.root, document, context.sourceRoots),
     ];
     return broken.map((item) => `${label}: ${item} が存在しない`);

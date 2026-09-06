@@ -29,10 +29,25 @@ export function listManifests(root: string, sourceRoots: readonly string[]): str
   return manifests;
 }
 
-export function readJson(path: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new Error(`${path} is not a JSON object`);
+/**
+ * JSON オブジェクトとして読む。読めない・オブジェクトでないなら null。
+ *
+ * 例外を投げると、編集途中の壊れた `package.json` が 1 つあるだけで
+ * `bun run fitness` 全体が未捕捉の例外で死に、他のゲートの結果ごと失われる。
+ * **レポートが出ないことは「すべて緑」と区別がつかない**ので、1 件の FAIL より悪い。
+ *
+ * かといって空オブジェクトに倒すのも危険で、依存 0 件 =「違反なし」になってしまう。
+ * そのため null を返し、読めなかったこと自体を各検査が違反として報告する。
+ */
+export function readJson(path: string): Record<string, unknown> | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return null;
   }
   return Object.fromEntries(Object.entries(parsed));
 }
