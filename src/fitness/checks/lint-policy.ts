@@ -50,6 +50,74 @@ function offRulesIn(overrides: readonly OxlintOverride[]): string[] {
   return [...new Set(overrides.flatMap((entry) => ruleNamesWithSeverity(entry.rules, 'off')))];
 }
 
+/** ワークスペース直下でソースを置くディレクトリ名（`apps/api/src` の `src`）。 */
+const WORKSPACE_SOURCE_DIRECTORY = 'src';
+
+/**
+ * 境界の直下に置いたとき、その境界の全域を覆う接尾辞。
+ *
+ * 宣言済みの `REPOSITORY_WIDE_FILE_PATTERNS`（ルート直下に書いた場合の形）を
+ * そのまま接尾辞の語彙として使い、`**` だけを足す。ポリシー面を増やさない。
+ */
+const WIDE_SUFFIXES = ['**', ...REPOSITORY_WIDE_FILE_PATTERNS];
+
+/**
+ * ワークスペースの位置に来てよいセグメント。
+ *
+ * 実名（`api`）か、任意の 1 ワークスペースを表す `*` だけを許す。`**` を許すと
+ * `**\/src/**` のような「境界とは無関係にたまたま src を含むパス」まで
+ * 全域と誤判定する。
+ */
+function isWorkspaceSegment(segment: string): boolean {
+  return segment === '*' || !segment.includes('*');
+}
+
+/**
+ * セグメント列が「境界」の形をしているか。
+ *
+ * 境界はリポジトリルート / ソースルート / ソースルート直下のワークスペース /
+ * そのワークスペースの `src`。ソースルートの位置にはワイルドカードを許さない
+ * （`sourceRoots` の実名と一致することを要求する）。
+ */
+function isBoundary(segments: readonly string[], sourceRoots: readonly string[]): boolean {
+  const [root, workspace, source] = segments;
+  if (root === undefined) {
+    return true;
+  }
+  if (!sourceRoots.includes(root)) {
+    return false;
+  }
+  if (workspace === undefined) {
+    return true;
+  }
+  if (!isWorkspaceSegment(workspace)) {
+    return false;
+  }
+  return source === undefined || (source === WORKSPACE_SOURCE_DIRECTORY && segments.length === 3);
+}
+
+/**
+ * その `files` パターンが、ある境界の全域を覆っているか。
+ *
+ * 文字列の完全一致で見ていたときは、**書き手が正直にワイルドカードを書いた場合しか
+ * 捕まえられなかった**。`src/**\/*.ts` や `apps/web/src/**` は、文字列としては
+ * 「具体的なパスが付いたパターン」に見えるのに実質は全域なので、
+ * 「ゲートに詰まったら設定を緩める」を塞ぐという ⑪ の役割を果たせていなかった。
+ *
+ * 実ファイルへの展開はしない。展開すると判定が作業ツリーの中身に依存し、
+ * **ファイルが 1 つ増えただけで警戒が黙って外れる**（緩む方向に動く）。
+ * oxlint の glob 意味論を推測で再実装することにもなる。
+ * 宣言だけで決まる形――接頭辞が境界で止まり、残りがワイルドカードのみ――で見る。
+ */
+function coversBoundary(pattern: string, sourceRoots: readonly string[]): boolean {
+  const segments = pattern.split('/');
+  return segments.some(
+    (_segment, index) =>
+      WIDE_SUFFIXES.some((suffix) => suffix === segments.slice(index).join('/')) &&
+      isBoundary(segments.slice(0, index), sourceRoots),
+  );
+}
+
 /** カテゴリ・プラグイン・ルールの強度が宣言したポリシーと一致しているか。 */
 function shapeComparisons(config: JsonObject): Comparison[] {
   const rules = objectAt(config, 'rules');
@@ -87,7 +155,11 @@ function shapeComparisons(config: JsonObject): Comparison[] {
 }
 
 /** 適用範囲と override の抜け道を塞げているか。 */
-function scopeComparisons(config: JsonObject, rootConfigPath: string): Comparison[] {
+function scopeComparisons(
+  config: JsonObject,
+  rootConfigPath: string,
+  sourceRoots: readonly string[],
+): Comparison[] {
   const overrides = overridesOf(config);
   const ignorePatterns = stringsAt(config, 'ignorePatterns');
   return [
@@ -105,13 +177,14 @@ function scopeComparisons(config: JsonObject, rootConfigPath: string): Compariso
       expected: [],
     },
     {
-      // ディレクトリ単位の例外という建前が成立しなくなる
-      label: 'リポジトリ全体を覆う override の off',
+      // ディレクトリ単位の例外という建前が成立しなくなる。
+      // 判定は off にしている override にだけ効かせる。層の依存方向のように
+      // 「ワークスペースのソース全域に対して宣言するのが正しい」ルールもあり、
+      // それらは足す側なので狭められない（狭めると境界に穴が空く）。
+      label: '境界の全域を覆う override の off',
       actual: offRulesIn(
         overrides.filter((entry) =>
-          entry.files.some((pattern) =>
-            REPOSITORY_WIDE_FILE_PATTERNS.some((wide) => wide === pattern),
-          ),
+          entry.files.some((pattern) => coversBoundary(pattern, sourceRoots)),
         ),
       ),
       expected: [],
@@ -146,7 +219,7 @@ function missingConfig(name: string, expected: string): CheckResult {
  * `extends` を解決した**実効設定**に対して見る。ルートの `.oxlintrc.json` は
  * 薄いラッパなので、ファイルをそのまま読むとポリシーの大半が検査対象から外れる。
  */
-function checkConfigShape(root: string): CheckResult {
+function checkConfigShape(root: string, sourceRoots: readonly string[]): CheckResult {
   const rootConfigPath = join(root, ROOT_CONFIG);
   const name = 'lint policy';
   const expected = '宣言したポリシーと完全に一致';
@@ -158,7 +231,7 @@ function checkConfigShape(root: string): CheckResult {
   const config = loadEffectiveOxlintConfig(rootConfigPath);
   const details = differences([
     ...shapeComparisons(config),
-    ...scopeComparisons(config, rootConfigPath),
+    ...scopeComparisons(config, rootConfigPath, sourceRoots),
   ]);
 
   return {
@@ -259,5 +332,5 @@ function checkThresholdDrift(root: string): CheckResult {
 }
 
 export function checkLintPolicy(context: FitnessContext = defaultContext()): CheckResult[] {
-  return [checkConfigShape(context.root), checkThresholdDrift(context.root)];
+  return [checkConfigShape(context.root, context.sourceRoots), checkThresholdDrift(context.root)];
 }

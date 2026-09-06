@@ -4,6 +4,7 @@ import {
   baseConfigPaths,
   contextOf,
   makeTempRepo,
+  contextWith,
   repositoryConfigFiles,
 } from '../../test/temp-repo.ts';
 import { checkLintPolicy } from './lint-policy.ts';
@@ -92,8 +93,8 @@ describe('checkLintPolicy', () => {
     const root = repoWithConfig([
       {
         file: BASE,
-        from: '"node/no-sync": "off",',
-        to: '"node/no-sync": "off",\n        "typescript/no-unsafe-call": "off",',
+        from: '"typescript/no-non-null-assertion": "off",',
+        to: '"typescript/no-non-null-assertion": "off",\n        "typescript/no-unsafe-call": "off",',
       },
     ]);
 
@@ -138,5 +139,77 @@ describe('checkLintPolicy', () => {
     const root = repoWithConfig([{ file: JSCPD, from: '"threshold": 3', to: '"threshold": 30' }]);
 
     expect(resultsOf(root)['threshold drift']?.details).toContain('jscpd.threshold');
+  });
+});
+
+/**
+ * 「境界の全域を覆う override の off」の判定。
+ *
+ * 文字列の完全一致で見ていたときは、書き手が正直に `**\/*` と書いた場合しか
+ * 捕まえられず、`src/**\/*.ts` や `apps/web/src/**` のように「具体的なパスが付いた
+ * パターン」に見える全域指定は素通りしていた。実物の設定に 1 件だけ override を
+ * 足して、パターンごとの判定を固定する。
+ */
+describe('境界の全域を覆う override の off', () => {
+  /** 実物の設定に、指定したパターンで `no-console` を off にする override を足す。 */
+  function repoWithOverride(pattern: string, sourceRoots: readonly string[]) {
+    const root = repoWithConfig([
+      {
+        file: ROOT,
+        from: '"overrides": [',
+        to: `"overrides": [{ "files": ["${pattern}"], "rules": { "no-console": "off" } },`,
+      },
+    ]);
+    return checkLintPolicy(contextWith(root, { sourceRoots, bundles: [] }));
+  }
+
+  function flagsWide(pattern: string, sourceRoots: readonly string[] = ['apps', 'packages']) {
+    const details = repoWithOverride(pattern, sourceRoots)[0]?.details ?? [];
+    return details.some((line) => line.startsWith('境界の全域を覆う override の off'));
+  }
+
+  it.each([
+    // 正直に書いた全域（従来の完全一致でも捕まえられた形）
+    ['**/*', ['apps'], true],
+    ['*', ['apps'], true],
+    // ソースルートの全域。単一パッケージの派生が踏む形
+    ['src/**/*.ts', ['src'], true],
+    ['src/**', ['src'], true],
+    // ワークスペースの全域。monorepo が踏む形
+    ['apps/web/src/**', ['apps'], true],
+    ['packages/domain/src/**/*.ts', ['packages'], true],
+    // 全ワークスペースをまとめて覆う形
+    ['apps/*/src/**', ['apps'], true],
+    // 境界より下。ディレクトリ単位の例外という建前が成立する
+    ['apps/web/src/routes/**', ['apps'], false],
+    ['src/fitness/lib/**', ['src'], false],
+    // 残りがワイルドカードだけではない
+    ['**/routes/**/*.tsx', ['apps'], false],
+    ['apps/*/src/worker.ts', ['apps'], false],
+    ['**/*.test.ts', ['apps'], false],
+    // ソースルートでないディレクトリの全域は、境界ではないので対象外
+    ['docs/**', ['apps'], false],
+    // ソースルートの位置にワイルドカードは許さない（たまたま src を含むパスを巻き込まない）
+    ['**/src/**', ['apps'], false],
+  ])('%s（sourceRoots=%j）→ 全域と判定するか: %s', (pattern, sourceRoots, expected) => {
+    expect(flagsWide(pattern, sourceRoots)).toBe(expected);
+  });
+
+  it('同じパターンでも sourceRoots が違えば判定が変わる', () => {
+    expect(flagsWide('src/**/*.ts', ['src'])).toBe(true);
+    expect(flagsWide('src/**/*.ts', ['apps', 'packages'])).toBe(false);
+  });
+
+  it('ルールを足すだけの override は、全域を覆っていても違反にしない', () => {
+    const root = repoWithConfig([
+      {
+        file: ROOT,
+        from: '"overrides": [',
+        to: '"overrides": [{ "files": ["src/**"], "rules": { "no-alert": "error" } },',
+      },
+    ]);
+    const [result] = checkLintPolicy(contextWith(root, { sourceRoots: ['src'], bundles: [] }));
+
+    expect(result?.ok).toBe(true);
   });
 });

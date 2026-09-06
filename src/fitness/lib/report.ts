@@ -13,15 +13,18 @@ const RED = '\u001B[31m';
 const DIM = '\u001B[2m';
 const RESET = '\u001B[0m';
 
-export function printReport(results: readonly CheckResult[]): boolean {
-  // 検査 0 件を成功にすると、収集側が壊れた瞬間に `bun run fitness` が
-  // 「すべて満たしています (0 件)」で終了コード 0 になる（false green）。
-  if (results.length === 0) {
-    console.log('');
-    console.log(`${RED}適応度関数が 1 件も収集できませんでした${RESET}`);
-    return false;
+/** 1 件分の行と、その詳細行。 */
+function printRow(result: CheckResult, nameWidth: number, actualWidth: number): void {
+  const mark = result.ok ? `${GREEN}PASS${RESET}` : `${RED}FAIL${RESET}`;
+  const name = result.name.padEnd(nameWidth);
+  const actual = result.actual.padEnd(actualWidth);
+  console.log(`  ${mark}  ${name}  ${actual}  ${DIM}期待: ${result.expected}${RESET}`);
+  for (const line of result.details ?? []) {
+    console.log(`        ${DIM}${line}${RESET}`);
   }
+}
 
+function printRows(results: readonly CheckResult[]): void {
   const nameWidth = Math.max(...results.map((result) => result.name.length), 4);
   const actualWidth = Math.max(...results.map((result) => result.actual.length), 6);
 
@@ -30,15 +33,12 @@ export function printReport(results: readonly CheckResult[]): boolean {
   console.log('');
 
   for (const result of results) {
-    const mark = result.ok ? `${GREEN}PASS${RESET}` : `${RED}FAIL${RESET}`;
-    const name = result.name.padEnd(nameWidth);
-    const actual = result.actual.padEnd(actualWidth);
-    console.log(`  ${mark}  ${name}  ${actual}  ${DIM}期待: ${result.expected}${RESET}`);
-    for (const line of result.details ?? []) {
-      console.log(`        ${DIM}${line}${RESET}`);
-    }
+    printRow(result, nameWidth, actualWidth);
   }
+}
 
+/** 集計行を出し、全件 PASS かどうかを返す。 */
+function printSummary(results: readonly CheckResult[]): boolean {
   const failed = results.filter((result) => !result.ok);
   console.log('');
   if (failed.length === 0) {
@@ -49,4 +49,17 @@ export function printReport(results: readonly CheckResult[]): boolean {
     `${RED}${failed.length} / ${results.length} 件の適応度関数が閾値を外れています${RESET}`,
   );
   return false;
+}
+
+export function printReport(results: readonly CheckResult[]): boolean {
+  // 検査 0 件を成功にすると、収集側が壊れた瞬間に `bun run fitness` が
+  // 「すべて満たしています (0 件)」で終了コード 0 になる（false green）。
+  if (results.length === 0) {
+    console.log('');
+    console.log(`${RED}適応度関数が 1 件も収集できませんでした${RESET}`);
+    return false;
+  }
+
+  printRows(results);
+  return printSummary(results);
 }
