@@ -1,12 +1,14 @@
 /**
  * 適応度関数（fitness function）のしきい値をここに集約する。
  *
- * 単一情報源にできない例外が 1 つある: oxlint のしきい値は `.oxlintrc.json` に
- * 書く必要があるため二重管理になる。乖離を防ぐために
- * `oxlint-thresholds.test.ts` が両者の一致を検証している。
+ * 単一情報源にできない例外がある: oxlint / Stryker / jscpd は自分の設定ファイルに
+ * しか数値を書けないため、`src/oxlint/base.json` `stryker.config.json` `.jscpd.json`
+ * とは二重管理になる。乖離を防ぐために `fitness/checks/lint-policy.ts` の
+ * `checkThresholdDrift`（⑪′）が両者の一致を検証している。
  *
  * 各指標は「単独でハックすると別の指標が悪化する」ように選んでいる。
- * 詳細は docs/adr/0002-fitness-functions.md を参照。
+ * 詳細は基盤リポジトリの ADR 0002 を参照。
+ * https://github.com/Shion-Serizawa/seri-base-ts-project/tree/main/docs/adr
  *
  * 数値そのものは `quality-gates.json` に置く。Node は node_modules 配下の .ts を
  * 型除去できない（ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING）ため、

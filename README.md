@@ -7,10 +7,10 @@
 基盤リポジトリから**配れる部分だけ**を切り出した単一パッケージ。
 「リポジトリの形（`apps/api` や `packages/contract` といった構造）を知らない」検査と設定が入っている。
 
-- 適応度関数の枠組み（`runFitness`）と、形を知らない検査 11 本
+- 適応度関数の枠組み（`runFitness`）と、形を知らない検査 8 本（結果は 14 件）
 - しきい値の単一情報源（`QUALITY_GATES`）と Lint ポリシーの宣言
 - oxlint の base 設定 / tsconfig プリセット / Vitest 設定ファクトリ
-- Conventional Commits の検査
+- git フックの判定（Conventional Commits / 保護ブランチへの直 push 拒否）
 
 形に依存する検査（OpenAPI の乖離、マイグレーション、層の依存方向）は入っていない。
 それらは利用側が `runFitness({ projectChecks })` で差し込む。
