@@ -7,7 +7,14 @@
  *
  * 各指標は「単独でハックすると別の指標が悪化する」ように選んでいる。
  * 詳細は docs/adr/0002-fitness-functions.md を参照。
+ *
+ * 数値そのものは `quality-gates.json` に置く。Node は node_modules 配下の .ts を
+ * 型除去できない（ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING）ため、
+ * Node が直接読む境界（使う側の `vitest.config.ts` など）は JSON を引く。
+ * **意図（なぜその値なのか）はこのファイルが持つ。JSON には数値だけ。**
  */
+import gates from './quality-gates.json' with { type: 'json' };
+
 export const QUALITY_GATES = {
   /**
    * ① テストカバレッジ: 水増しは ④ ミューテーションスコアで牽制する。
@@ -15,13 +22,7 @@ export const QUALITY_GATES = {
    * `perFile` を有効にしてファイル単位で要求する。パッケージ全体の集計だと、
    * 十分テストされた他のコードに紛れて「テストが 1 件も無いファイル」が隠れてしまう。
    */
-  coverage: {
-    lines: 80,
-    functions: 80,
-    branches: 80,
-    statements: 80,
-    perFile: true,
-  },
+  coverage: gates.coverage,
 
   /**
    * ② test ratio: テストコード行数 / 実装コード行数。
@@ -34,60 +35,38 @@ export const QUALITY_GATES = {
    * 上限だけは他のどの指標も測っていない。20 行の実装に 500 行のテストを書く方向
    * （特に AI に「テストを増やせ」と指示したとき）への唯一の牽制として残す。
    */
-  testRatio: {
-    max: 2.5,
-  },
+  testRatio: gates.testRatio,
 
   /** ③ 重複率（jscpd）: 過度な共通化に走らせないため上限のみ */
-  duplication: {
-    maxPercentTokens: 3,
-    minTokens: 50,
-  },
+  duplication: gates.duplication,
 
-  /** ④ ミューテーションスコア: 変更ファイルのみ CI で実行する */
-  mutation: {
-    /** これを下回ると失敗 */
-    break: 60,
-    /** これを下回ると警告 */
-    high: 80,
-    low: 70,
-  },
+  /**
+   * ④ ミューテーションスコア: 変更ファイルのみ CI で実行する。
+   * `break` を下回ると失敗し、`high` を下回ると警告する。
+   */
+  mutation: gates.mutation,
 
   /** ⑤ 複雑度: .oxlintrc.json と一致していることをテストで検証する */
-  complexity: {
-    max: 10,
-    maxDepth: 3,
-    maxLinesPerFunction: 50,
-    maxLines: 300,
-    maxParams: 4,
-    maxStatements: 20,
-    maxNestedCallbacks: 3,
-  },
+  complexity: gates.complexity,
 
   /**
    * サプライチェーン対策の必須条件。
-   * scripts/fitness/checks/supply-chain.ts が bunfig.toml / mise.lock /
+   * `minimumReleaseAgeSeconds` は公開直後のパッケージを拒否する待機時間（秒）。7 日。
+   * fitness/checks/supply-chain.ts が bunfig.toml / mise.lock /
    * GitHub Actions のピン留めを実測して検証する。
    */
-  supplyChain: {
-    /** 公開直後のパッケージを拒否する待機時間（秒）。7 日 */
-    minimumReleaseAgeSeconds: 604_800,
-  },
+  supplyChain: gates.supplyChain,
 
   /**
    * ⑧ バンドルサイズ予算（gzip 後のバイト数）。
+   * `apiGzipBytes` は Worker 1 本あたり、`webGzipBytes` は SPA の JS 合計。
    *
    * Cloudflare Workers の圧縮後上限は 3 MiB なので、この値はプラットフォーム上限ではなく
    * 「依存を足して楽をする」方向への牽制（bloat tripwire）。
    * 複雑度やカバレッジを楽に満たすために巨大なライブラリを持ち込むとここで落ちる。
    */
-  sizeBudget: {
-    /** Worker 1 本あたりの gzip サイズ */
-    apiGzipBytes: 550_000,
-    /** SPA の JS 合計の gzip サイズ */
-    webGzipBytes: 160_000,
-  },
-} as const;
+  sizeBudget: gates.sizeBudget,
+};
 
 export type QualityGates = typeof QUALITY_GATES;
 
