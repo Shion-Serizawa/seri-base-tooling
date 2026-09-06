@@ -14,6 +14,7 @@
     "./fitness/walk": "./src/fitness/lib/walk.ts",
     "./fitness/compare": "./src/fitness/lib/compare.ts",
     "./fitness/oxlint-config": "./src/fitness/lib/oxlint-config.ts",
+    "./fitness/checks/supply-chain": "./src/fitness/checks/supply-chain.ts",
     "./git/commit-message": "./src/git/commit-message.ts",
     "./oxlint": "./src/oxlint/base.json",
     "./tsconfig/*": "./src/tsconfig/*",
