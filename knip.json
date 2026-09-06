@@ -5,6 +5,7 @@
     "src/fitness/run.ts!",
     "src/fitness/supply-chain.ts!",
     "src/git/check-commit-message.ts!",
+    "src/git/check-push-target.ts!",
     "src/vitest-config/index.ts!",
     "src/**/*.test.ts",
     "src/test/**",
