@@ -16,6 +16,7 @@
     "./fitness/oxlint-config": "./src/fitness/lib/oxlint-config.ts",
     "./fitness/checks/supply-chain": "./src/fitness/checks/supply-chain.ts",
     "./git/commit-message": "./src/git/commit-message.ts",
+    "./git/push-target": "./src/git/push-target.ts",
     "./quality-gates.json": "./src/quality-gates.json",
     "./oxlint": "./src/oxlint/base.json",
     "./tsconfig/*": "./src/tsconfig/*",
