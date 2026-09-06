@@ -4,53 +4,14 @@ import { join } from 'node:path';
 import { QUALITY_GATES } from '../../index.ts';
 import type { FitnessContext } from '../lib/context.ts';
 import { defaultContext } from '../lib/context.ts';
+import { asStringRecord, DEPENDENCY_FIELDS, listManifests, readJson } from '../lib/manifest.ts';
 import type { CheckResult } from '../lib/report.ts';
 
-const DEPENDENCY_FIELDS = [
-  'dependencies',
-  'devDependencies',
-  'peerDependencies',
-  'optionalDependencies',
-];
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[\w.]+)?$/u;
 const COMMIT_SHA = /^[\da-f]{40}$/u;
 /** git 依存を表す指定子の頭。`github:owner/repo` のような短縮形も含む。 */
 const GIT_DEPENDENCY = /^(?:git\+(?:https?|ssh):\/\/|git:\/\/|github:|gitlab:|bitbucket:)/u;
 const MAX_DETAILS = 10;
-
-function listManifests(root: string, sourceRoots: readonly string[]): string[] {
-  const manifests = [join(root, 'package.json')];
-  for (const directory of sourceRoots
-    .map((path) => join(root, path))
-    .filter((path) => existsSync(path))) {
-    for (const entry of readdirSync(directory)) {
-      const manifest = join(directory, entry, 'package.json');
-      if (existsSync(manifest)) {
-        manifests.push(manifest);
-      }
-    }
-  }
-  return manifests;
-}
-
-function readJson(path: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new Error(`${path} is not a JSON object`);
-  }
-  return Object.fromEntries(Object.entries(parsed));
-}
-
-function asStringRecord(value: unknown): Record<string, string> {
-  if (typeof value !== 'object' || value === null) {
-    return {};
-  }
-  return Object.fromEntries(
-    Object.entries(value).filter(
-      (entry): entry is [string, string] => typeof entry[1] === 'string',
-    ),
-  );
-}
 
 /**
  * git 依存が 40 桁のコミット SHA で固定されているか。

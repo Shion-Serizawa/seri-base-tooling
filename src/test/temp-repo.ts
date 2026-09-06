@@ -117,6 +117,10 @@ export function makeHealthyBaseRepo(): string {
     ...repositoryConfigFiles(),
     'package.json': JSON.stringify({ name: 'root', devDependencies: { knip: '6.32.2' } }),
     'bunfig.toml': '[install]\nexact = true\nminimumReleaseAge = 604800\n',
+    '.seri-base.json': JSON.stringify({
+      template: 'Shion-Serizawa/seri-base-ts-project',
+      ref: 'b'.repeat(40),
+    }),
     'bun.lock': '',
     'mise.lock': '',
     '.github/workflows/ci.yml': `      - uses: actions/checkout@${'a'.repeat(40)}\n`,

@@ -1,0 +1,6 @@
+{
+  "$comment": "この派生がどの世代の基盤から来たか。ADR 0010 の決定 2。同期の起点になる唯一の値なので消さないこと",
+  "template": "Shion-Serizawa/seri-base-ts-project",
+  "ref": "template",
+  "syncedAt": "2026-09-06"
+}
