@@ -28,6 +28,7 @@ export default defineConfig({
         'src/fitness/run.ts',
         'src/fitness/supply-chain.ts',
         'src/git/check-commit-message.ts',
+        'src/git/check-push-target.ts',
         // テスト専用のフィクスチャヘルパ
         'src/test/**',
       ],
