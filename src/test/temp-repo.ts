@@ -68,7 +68,14 @@ export function contextWith(
   return { ...contextOf(root), ...overrides };
 }
 
-const REPO_ROOT = join(import.meta.dirname, '..', '..');
+/**
+ * 検査する側のリポジトリのルート。
+ *
+ * `import.meta.dirname` からの相対にすると、このパッケージが `node_modules` に
+ * 入ったときに**パッケージ自身**の設定を読んでしまう。使う側の実物を検査したいので
+ * 実行時のカレントディレクトリを見る（Vitest はリポジトリのルートで走る）。
+ */
+const REPO_ROOT = process.cwd();
 
 const ROOT_CONFIG = '.oxlintrc.json';
 
