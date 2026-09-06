@@ -215,6 +215,12 @@
     "import/no-nodejs-modules": "off"
   },
 
+  // ここに置いてよいのは「リポジトリの形を知らない」override だけ。
+  // extends 先の overrides は連結されるので、使う側から取り消せない。
+  // `scripts/**` のような特定のディレクトリの緩和をここに置くと、その形を
+  // 持たない派生にも押し付けることになり、しかも外せない。
+  // 実行入口の緩和（no-console / node/no-process-env）は、どのファイルが入口かを
+  // 知っている使う側の `.oxlintrc.json` が宣言する。
   "overrides": [
     {
       "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.test-d.ts", "**/*.spec.ts", "**/test/**"],
@@ -225,7 +231,6 @@
         "max-statements": "off",
         "typescript/no-non-null-assertion": "off",
         "typescript/explicit-module-boundary-types": "off",
-        "node/no-sync": "off",
         // テストのセットアップは副作用 import が正当（matcher の登録など）
         "import/no-unassigned-import": "off",
         // テスト内のインラインの配列・オブジェクトは再レンダリング性能に無関係
@@ -237,16 +242,6 @@
       "files": ["**/*.config.ts", "**/*.config.mjs"],
       "rules": {
         "import/no-default-export": "off"
-      }
-    },
-    {
-      "files": ["scripts/**/*.ts"],
-      "rules": {
-        "no-console": "off",
-        "node/no-sync": "off",
-        "max-statements": "off",
-        // 計測スクリプトはローカル/CI で動く Node プロセスなので環境変数を読んでよい
-        "node/no-process-env": "off"
       }
     }
   ]

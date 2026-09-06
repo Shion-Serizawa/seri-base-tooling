@@ -10,17 +10,21 @@
   // ---------------------------------------------------------------------------
   "extends": ["./src/oxlint/base.json"],
 
+  // ⑪ は「境界の全域を覆う override の off」を違反として見る。単一パッケージの
+  // このリポジトリでは `src/**/*.ts` が事実上の全域なので、緩和は実際に必要な
+  // ファイルまで狭める。狭められないものは設定ではなく実装を直す
+  // （`max-statements` は printReport を分割して解消。`node/no-sync` は
+  // そもそも 1 件も違反しておらず、効いていない緩和だった）。
   "overrides": [
     {
-      // base.json は計測スクリプトを `scripts/**` に置く前提で緩和している。
-      // このパッケージは同じコードを `src/**` に持つので、同じ緩和をここで与える。
-      "files": ["src/**/*.ts"],
-      "rules": {
-        "no-console": "off",
-        "node/no-sync": "off",
-        "max-statements": "off",
-        "node/no-process-env": "off"
-      }
+      // レポートの整形出力そのもの。stdout に書くのがこのモジュールの役目。
+      "files": ["src/fitness/lib/report.ts"],
+      "rules": { "no-console": "off" }
+    },
+    {
+      // 環境変数を読む境界。ここが読むから、他の検査は process.env を見ずに済む。
+      "files": ["src/fitness/lib/context.ts", "src/fitness/lib/context.test.ts"],
+      "rules": { "node/no-process-env": "off" }
     }
   ],
 
