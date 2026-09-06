@@ -86,6 +86,37 @@ describe('dependency pinning', () => {
     expect(result?.details?.[0]).toContain('drizzle-orm@~0.45.2');
   });
 
+  /** 依存 1 件だけを持つリポジトリで dependency pinning の合否を返す。 */
+  function pinningOk(version: string): boolean {
+    const root = healthyRepo({
+      'package.json': JSON.stringify({ dependencies: { '@seri/base-tooling': version } }),
+    });
+
+    return resultsOf(root).get('dependency pinning')?.ok === true;
+  }
+
+  it.each([
+    ['github の短縮形', `github:owner/repo#${SHA}`],
+    ['git+https', `git+https://github.com/owner/repo.git#${SHA}`],
+    ['git+ssh', `git+ssh://git@github.com/owner/repo.git#${SHA}`],
+  ])('40 桁のコミット SHA で固定した git 依存は許可する（%s）', (_label, version) => {
+    expect(pinningOk(version)).toBe(true);
+  });
+
+  // git 依存を無条件に通すと「git 依存はぜんぶ素通り」という false green になる。
+  // 下はいずれも後から中身が変わる（あるいは曖昧な）ので落ちなければならない。
+  it.each([
+    ['ref 無し（既定ブランチ）', 'github:owner/repo'],
+    ['ブランチ', 'github:owner/repo#main'],
+    ['タグ', 'github:owner/repo#v1.2.3'],
+    ['短縮 SHA', 'github:owner/repo#1559aaa'],
+    ['semver レンジ', 'github:owner/repo#semver:^1.0.0'],
+    ['大文字混じりの SHA', `github:owner/repo#${SHA.toUpperCase()}`],
+    ['git+https でブランチ', 'git+https://github.com/owner/repo.git#main'],
+  ])('固定になっていない git 依存は違反にする（%s）', (_label, version) => {
+    expect(pinningOk(version)).toBe(false);
+  });
+
   it('devDependencies 以外のフィールドも見る', () => {
     const root = healthyRepo({
       'package.json': JSON.stringify({ peerDependencies: { react: '>=19' } }),

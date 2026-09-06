@@ -14,6 +14,8 @@ const DEPENDENCY_FIELDS = [
 ];
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[\w.]+)?$/u;
 const COMMIT_SHA = /^[\da-f]{40}$/u;
+/** git 依存を表す指定子の頭。`github:owner/repo` のような短縮形も含む。 */
+const GIT_DEPENDENCY = /^(?:git\+(?:https?|ssh):\/\/|git:\/\/|github:|gitlab:|bitbucket:)/u;
 const MAX_DETAILS = 10;
 
 function listManifests(root: string, sourceRoots: readonly string[]): string[] {
@@ -50,25 +52,48 @@ function asStringRecord(value: unknown): Record<string, string> {
   );
 }
 
-function collectRangeViolations(manifest: string): string[] {
+/**
+ * git 依存が 40 桁のコミット SHA で固定されているか。
+ *
+ * git 依存を無条件に通すと固定の意味が消える。ブランチ・タグ・短縮 SHA・semver レンジは
+ * いずれも「後から中身が変わる（あるいは曖昧）」ので通さない。
+ */
+function isPinnedGitDependency(version: string): boolean {
+  if (!GIT_DEPENDENCY.test(version)) {
+    return false;
+  }
+  const reference = version.split('#')[1];
+  return reference !== undefined && COMMIT_SHA.test(reference);
+}
+
+/** 依存の指定が「後から中身が変わらない」形になっているか。 */
+function isPinnedVersion(version: string): boolean {
+  return (
+    version.startsWith('workspace:') ||
+    EXACT_VERSION.test(version) ||
+    isPinnedGitDependency(version)
+  );
+}
+
+function collectUnpinnedDependencies(manifest: string): string[] {
   const json = readJson(manifest);
   return DEPENDENCY_FIELDS.flatMap((field) =>
     Object.entries(asStringRecord(json[field]))
-      .filter(([, version]) => !version.startsWith('workspace:') && !EXACT_VERSION.test(version))
+      .filter(([, version]) => !isPinnedVersion(version))
       .map(([name, version]) => `${manifest}: ${name}@${version}`),
   );
 }
 
-/** 依存が完全固定（レンジ禁止）であることを検証する。 */
+/** 依存が完全固定（レンジ・ブランチ・タグ禁止）であることを検証する。 */
 function checkExactVersions(root: string, sourceRoots: readonly string[]): CheckResult {
   const violations = listManifests(root, sourceRoots).flatMap((manifest) =>
-    collectRangeViolations(manifest),
+    collectUnpinnedDependencies(manifest),
   );
   return {
     name: 'dependency pinning',
     ok: violations.length === 0,
-    actual: violations.length === 0 ? 'すべて完全固定' : `${violations.length} 件のレンジ指定`,
-    expected: 'x.y.z か workspace:* のみ',
+    actual: violations.length === 0 ? 'すべて完全固定' : `${violations.length} 件が未固定`,
+    expected: 'x.y.z / workspace:* / git+40 桁 SHA',
     details: violations.slice(0, MAX_DETAILS),
   };
 }
