@@ -20,6 +20,13 @@ const ZERO_SHA = /^0+$/u;
 /** `<local ref> <local sha> <remote ref> <remote sha>` の 4 つ。 */
 const FIELD_COUNT = 4;
 
+type PushLine = [string, string, string, string, ...string[]];
+
+/** 欄が揃っている行だけを残す（空行や途中で切れた行を無視する）。 */
+function hasAllFields(fields: string[]): fields is PushLine {
+  return fields.length >= FIELD_COUNT;
+}
+
 /**
  * pre-push フックの stdin を読み取る。
  *
@@ -30,11 +37,8 @@ export function parsePushInput(stdin: string): PushTarget[] {
   return stdin
     .split('\n')
     .map((line) => line.trim().split(/\s+/u))
-    .filter((fields) => fields.length >= FIELD_COUNT)
-    .map((fields) => ({
-      remoteRef: fields[2] ?? '',
-      deleting: ZERO_SHA.test(fields[1] ?? ''),
-    }))
+    .filter((fields) => hasAllFields(fields))
+    .map((fields) => ({ remoteRef: fields[2], deleting: ZERO_SHA.test(fields[1]) }))
     .filter((target) => target.remoteRef.startsWith(HEADS_PREFIX));
 }
 
