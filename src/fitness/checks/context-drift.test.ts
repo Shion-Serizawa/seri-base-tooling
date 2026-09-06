@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { contextOf, makeTempRepo } from '../../test/temp-repo.ts';
+import { contextOf, contextWith, makeTempRepo } from '../../test/temp-repo.ts';
 import { checkContextDrift } from './context-drift.ts';
 
 const PACKAGE_JSON = JSON.stringify({
@@ -250,5 +250,48 @@ describe('checkContextDrift', () => {
     expect(result.ok).toBe(false);
     expect(result.actual).toBe('文書なし（計測不能）');
     expect(result.details?.[0]).toContain('CLAUDE.md');
+  });
+});
+
+/**
+ * バッククォートパスの先頭セグメント。
+ *
+ * 決め打ちにすると、レイアウトの違う派生で文書の主要な参照が丸ごと検査対象から
+ * 外れ、黙って PASS になる（このパッケージ自身が `src` レイアウトで、まさに
+ * そうなっていた）。`sourceRoots` から組み立てているかを見る。
+ */
+describe('バッククォートパスの先頭セグメント', () => {
+  const files = { 'CLAUDE.md': '`src/oxlint/base.json` を見る。\n', 'package.json': PACKAGE_JSON };
+
+  it('sourceRoots に含まれるディレクトリの参照切れを検出する', () => {
+    const result = checkContextDrift(
+      contextWith(makeTempRepo(files), { sourceRoots: ['src'], bundles: [] }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.details?.some((line) => line.includes('src/oxlint/base.json'))).toBe(true);
+  });
+
+  it('sourceRoots に無いディレクトリは参照として拾わない（既定では見えない）', () => {
+    const result = checkContextDrift(
+      contextWith(makeTempRepo(files), { sourceRoots: ['apps'], bundles: [] }),
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('sourceRoots が何であれ .claude と docs は常に見る', () => {
+    const result = checkContextDrift(
+      contextWith(
+        makeTempRepo({
+          'CLAUDE.md': '`docs/adr/0002.md` と `.claude/skills/x/SKILL.md` を見る。\n',
+          'package.json': PACKAGE_JSON,
+        }),
+        { sourceRoots: ['src'], bundles: [] },
+      ),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.details).toHaveLength(2);
   });
 });

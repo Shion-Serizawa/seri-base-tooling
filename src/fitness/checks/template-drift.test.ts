@@ -133,3 +133,25 @@ describe('checkTemplateDrift', () => {
     expect(resultOf(root).ok).toBe(true);
   });
 });
+
+describe('読めない manifest', () => {
+  it('JSON として読めない manifest があれば FAIL にする', () => {
+    const root = repoWith(
+      { template: 'owner/repo', ref: SHA },
+      { 'packages/domain/package.json': '{ 壊れている' },
+    );
+    const result = resultOf(root);
+
+    expect(result.ok).toBe(false);
+    expect(result.details?.some((line) => line.includes('読めない'))).toBe(true);
+  });
+
+  it('ルートの package.json が壊れていても例外にならない', () => {
+    const root = makeTempRepo({
+      'package.json': '{{{',
+      '.seri-base.json': JSON.stringify({ template: 'owner/repo', ref: SHA }),
+    });
+
+    expect(resultOf(root).ok).toBe(false);
+  });
+});

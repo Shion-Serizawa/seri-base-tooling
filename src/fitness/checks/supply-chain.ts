@@ -38,6 +38,11 @@ function isPinnedVersion(version: string): boolean {
 
 function collectUnpinnedDependencies(manifest: string): string[] {
   const json = readJson(manifest);
+  // 読めない manifest を黙って飛ばすと、宣言された依存が 0 件になり
+  //「すべて完全固定」で緑になる。読めないこと自体を違反として立てる。
+  if (json === null) {
+    return [`${manifest}: JSON オブジェクトとして読めない（固定を確認できない）`];
+  }
   return DEPENDENCY_FIELDS.flatMap((field) =>
     Object.entries(asStringRecord(json[field]))
       .filter(([, version]) => !isPinnedVersion(version))
@@ -88,15 +93,16 @@ function checkInstallPolicy(root: string): CheckResult {
       message: 'mise.lock が無い（ツールチェーンのチェックサムが固定されない）',
     },
   ];
+  const manifest = readJson(join(root, 'package.json'));
   const problems = [
     ...checkBunfig(root),
     ...lockfiles
       .filter((entry) => !existsSync(join(root, entry.path)))
       .map((entry) => entry.message),
+    ...(manifest === null ? ['package.json が JSON オブジェクトとして読めない'] : []),
   ];
-  const trusted = Object.keys(
-    asStringRecord(readJson(join(root, 'package.json'))['trustedDependencies']),
-  );
+  const trusted =
+    manifest === null ? [] : Object.keys(asStringRecord(manifest['trustedDependencies']));
 
   return {
     name: 'install policy',
