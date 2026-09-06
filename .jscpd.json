@@ -1,0 +1,18 @@
+{
+  "threshold": 3,
+  "minTokens": 50,
+  "reporters": ["consoleFull"],
+  "absolute": false,
+  "gitignore": true,
+  "format": ["typescript", "tsx"],
+  "pattern": "{apps,packages,tooling,scripts}/**/*.{ts,tsx}",
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/.stryker-tmp/**",
+    "**/*.gen.ts",
+    "**/worker-configuration.d.ts",
+    "**/*.test-d.ts"
+  ]
+}

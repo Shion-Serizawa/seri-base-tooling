@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 既定を read-only にする（サプライチェーン対策: 汚染された action に書き込み権限を渡さない）
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DO_NOT_TRACK: 1
+
+jobs:
+  quality:
+    name: quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # すべての action は可変タグではなくコミット SHA で固定する。
+      # src/fitness/checks/supply-chain.ts がこの固定を検査している。
+      - name: checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # mise.toml + mise.lock からツールチェーンを復元する（チェックサム検証つき）
+      - name: setup toolchain (mise)
+        uses: jdx/mise-action@eb2f5cb41b0a8175dad2f797e3daca6fe7795a19 # v2.4.2
+        with:
+          version: 2026.8.10
+          cache: true
+
+      # lockfile から一切ずれないことを保証する
+      - name: install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: supply chain gates
+        run: bun run fitness:deps
+
+      - name: audit (high 以上で失敗)
+        run: bun audit --audit-level=high
+
+      - name: format check
+        run: bun run format:check
+
+      - name: lint (type-aware)
+        run: bun run lint
+
+      - name: typecheck
+        run: bun run typecheck
+
+      - name: test with coverage
+        run: bun run test:coverage
+
+      - name: fitness functions
+        run: bun run fitness

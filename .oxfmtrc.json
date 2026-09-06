@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": true,
+  "jsxSingleQuote": false,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "bracketSpacing": true,
+  "bracketSameLine": false,
+  "endOfLine": "lf",
+  "insertFinalNewline": true,
+  "quoteProps": "as-needed",
+  "objectWrap": "preserve",
+  "sortImports": true,
+  "sortPackageJson": true,
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/coverage/**",
+    "**/reports/**",
+    "**/.wrangler/**",
+    "**/.stryker-tmp/**",
+    "**/*.gen.ts",
+    "docs/openapi.json"
+  ]
+}

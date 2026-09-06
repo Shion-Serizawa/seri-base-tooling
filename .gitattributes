@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+bun.lock text eol=lf
+
+# 生成物。レビューで差分を折りたたむ（内容は契約から再生成できる）
+docs/openapi.json linguist-generated=true

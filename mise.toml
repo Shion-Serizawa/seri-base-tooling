@@ -1,0 +1,21 @@
+# ツールチェーンのバージョン固定。`mise install` で全員が同一バージョンになる。
+# lockfile 機能（mise.lock にツールのチェックサムを記録）を使うため mise 2026.x 以降を要求する。
+min_version = "2026.1.0"
+
+[tools]
+node = "24.12.0"
+bun = "1.4.0"
+# シークレットの混入検査。GitHub Action ではなく mise 管理にしているのは、
+# バージョンとチェックサムが mise.lock に固定され、ローカルと CI で同一のものが動くため
+# （公式 Action は組織利用でライセンスキーを要求する）
+gitleaks = "8.30.1"
+
+[settings]
+# ツールのダウンロードをチェックサムで検証し、mise.lock に固定する（サプライチェーン対策）
+lockfile = true
+# .mise.toml の実行系設定を信頼済みディレクトリのみで有効化
+experimental = false
+
+[env]
+# Bun をパッケージマネージャとして固定（npm/yarn/pnpm の誤用を防ぐ）
+COREPACK_ENABLE_STRICT = "1"

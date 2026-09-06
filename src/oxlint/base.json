@@ -1,0 +1,253 @@
+{
+  // ---------------------------------------------------------------------------
+  // Lint 設定のうち「リポジトリの形を知らない」部分（ADR 0010 の A 層）。
+  //
+  // ルートの `.oxlintrc.json` がこれを `extends` する。派生リポジトリでは
+  // node_modules 越しに同じものを extends することで、基盤の改良が依存の更新だけで届く。
+  //
+  // oxlint 1.79.0 で実測したマージ意味論:
+  //   rules / categories / plugins / options … 継承される（後勝ち）
+  //   overrides                              … 連結される（extends 側が先）
+  //   ignorePatterns                         … **継承されない**
+  // したがって `ignorePatterns` はここに書かず、ルート側に置く。
+  // ---------------------------------------------------------------------------
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "import",
+    "promise",
+    "node",
+    "react",
+    "react-perf",
+    "jsx-a11y",
+    "vitest"
+  ],
+
+  // バグ・危険な書き方・性能・型の不整合はカテゴリ単位で全部 error にする。
+  // 一方 style は「互いに矛盾する規約」（no-ternary と JSX、unicorn/no-null と React、
+  // import/no-named-export と import/no-default-export など）を含み、品質に寄与しないため
+  // 一括採用せず、下の rules で必要なものだけ個別に有効化する。
+  // restriction / nursery も同様に個別採用とする。
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error",
+    "pedantic": "error",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+
+  "rules": {
+    // 制御フロー・暗黙変換・危険な実行を明示的に制限する
+    "curly": "error",
+    "default-case-last": "error",
+    "default-param-last": "error",
+    "guard-for-in": "error",
+    "no-alert": "error",
+    "no-empty": "error",
+    "no-implicit-coercion": "error",
+    "no-new-func": "error",
+    "no-param-reassign": ["error", { "props": true }],
+    "no-proto": "error",
+    "no-return-assign": ["error", "always"],
+    "no-script-url": "error",
+    "no-sequences": "error",
+    "no-template-curly-in-string": "error",
+    "no-var": "error",
+
+    // ESM の静的解析と型の境界を保つ
+    "import/no-amd": "error",
+    "import/no-commonjs": "error",
+    "import/no-dynamic-require": "error",
+    "import/no-mutable-exports": "error",
+    "typescript/consistent-type-exports": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/no-invalid-void-type": "error",
+    "typescript/no-non-null-asserted-nullish-coalescing": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/method-signature-style": "error",
+    "typescript/use-unknown-in-catch-callback-variable": "error",
+
+    // 例外・非同期処理・ブラウザの意図しない動作を防ぐ
+    "unicorn/error-message": "error",
+    "unicorn/throw-new-error": "error",
+    "unicorn/no-abusive-eslint-disable": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "promise/no-return-wrap": "error",
+    "promise/param-names": "error",
+    "react/button-has-type": "error",
+    "react/no-danger": "error",
+    "react/no-unknown-property": "error",
+
+    // テストの取り違えと弱い比較を防ぐ
+    "vitest/no-duplicate-hooks": "error",
+    "vitest/no-identical-title": "error",
+    "vitest/no-import-node-test": "error",
+    "vitest/no-interpolation-in-snapshots": "error",
+    "vitest/no-mocks-import": "error",
+    "vitest/prefer-strict-equal": "error",
+    "vitest/prefer-called-with": "error",
+
+    // ---------------------------------------------------------------------
+    // 適応度関数 ⑤: 複雑度。数値は QUALITY_GATES と一致させる（⑪′ が検証する）
+    // （tooling/quality-gates/src/oxlint-thresholds.test.ts が乖離を検出する）
+    // ---------------------------------------------------------------------
+    "complexity": ["error", { "max": 10 }],
+    "max-depth": ["error", 3],
+    "max-lines": ["error", { "max": 300, "skipBlankLines": true, "skipComments": true }],
+    "max-lines-per-function": [
+      "error",
+      { "max": 50, "skipBlankLines": true, "skipComments": true }
+    ],
+    "max-nested-callbacks": ["error", 3],
+    "max-params": ["error", 4],
+    "max-statements": ["error", 20],
+    "max-classes-per-file": ["error", 1],
+
+    // ---------------------------------------------------------------------
+    // style から個別に採用するもの
+    // ---------------------------------------------------------------------
+    "eqeqeq": ["error", "always"],
+    "prefer-const": "error",
+    "no-else-return": "error",
+    "func-style": ["error", "declaration", { "allowArrowFunctions": true }],
+    "no-console": ["error", { "allow": ["error", "warn"] }],
+    // Workers では環境変数ではなくバインディング（Cloudflare.Env）を使う。
+    // process.env は本番で undefined になり、しかも型で守られない
+    "node/no-process-env": "error",
+    // やり残しはコメントではなく issue で管理する。
+    // `todo` を term に含めていないのは、このリポジトリのサンプルドメインが "Todo" で、
+    // 「Todo の識別子」のような正当なコメントが全部引っかかるため。
+    // Todo 以外のドメインなら "todo" も term に加えるとよい。
+    "no-warning-comments": ["error", { "terms": ["fixme", "xxx", "hack"], "location": "anywhere" }],
+    // ファイル名は kebab-case で統一する（AI と grep の参照解決が安定する）
+    "unicorn/filename-case": ["error", { "case": "kebabCase" }],
+    // 名前付きエクスポートを標準にする（grep・リネーム・AI の参照解決が安定する）
+    "import/no-default-export": "error",
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "import/no-self-import": "error",
+
+    // ---------------------------------------------------------------------
+    // TypeScript: any の混入と暗黙の緩さを禁止する
+    // （type-coverage の代替。割合ではなく error で止める）
+    // ---------------------------------------------------------------------
+    "typescript/no-explicit-any": "error",
+    "typescript/ban-ts-comment": [
+      "error",
+      {
+        "ts-expect-error": "allow-with-description",
+        "ts-ignore": true,
+        "ts-nocheck": true,
+        "minimumDescriptionLength": 10
+      }
+    ],
+    "typescript/consistent-type-imports": "error",
+    "typescript/explicit-module-boundary-types": "error",
+    "typescript/no-non-null-assertion": "error",
+
+    // ---------------------------------------------------------------------
+    // 型情報が必要なルール（tsgolint / `oxlint --type-aware` でのみ動作）
+    // ---------------------------------------------------------------------
+    "typescript/await-thenable": "error",
+    "typescript/no-base-to-string": "error",
+    "typescript/no-confusing-void-expression": "error",
+    "typescript/no-deprecated": "error",
+    // void を付けただけでは rejection は処理されない。明示的な catch を要求する。
+    "typescript/no-floating-promises": ["error", { "ignoreVoid": false }],
+    "typescript/no-misused-promises": "error",
+    "typescript/no-misused-spread": "error",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/no-unnecessary-template-expression": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-enum-comparison": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-type-assertion": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/prefer-nullish-coalescing": "error",
+    "typescript/require-await": "error",
+    "typescript/restrict-template-expressions": "error",
+    "typescript/return-await": ["error", "always"],
+    "typescript/strict-boolean-expressions": [
+      "error",
+      { "allowString": false, "allowNumber": false, "allowNullableObject": false }
+    ],
+    "typescript/switch-exhaustiveness-check": "error",
+
+    // ---------------------------------------------------------------------
+    // テストの質。カバレッジ水増し（アサーションなしテスト）を lint で止める
+    // ---------------------------------------------------------------------
+    "vitest/expect-expect": "error",
+    "vitest/no-conditional-expect": "error",
+    "vitest/no-disabled-tests": "error",
+    "vitest/no-focused-tests": "error",
+    "vitest/no-standalone-expect": "error",
+    "vitest/valid-expect": "error",
+
+    // ---------------------------------------------------------------------
+    // 有効カテゴリの中で意図的に無効化するもの（理由付き）
+    // ---------------------------------------------------------------------
+    // React 19 の自動 JSX ランタイムを使うため `import React` は不要
+    "react/react-in-jsx-scope": "off",
+    // 引数の deep readonly を要求する。React props や外部ライブラリの型と衝突して実用にならない
+    "typescript/prefer-readonly-parameter-types": "off",
+    // 値を返す関数を void 文脈で使うことを禁止。vi.fn() 等のモックで誤検知が多い。
+    // 実害のある Promise の取り違えは typescript/no-misused-promises が捕捉する
+    "typescript/strict-void-return": "off",
+    // JSX 内に直接書くイベントハンドラをすべて禁止してしまう。メモ化は計測してから行う
+    "react-perf/jsx-no-new-function-as-prop": "off",
+    // globals を無効にしているため vitest からの import は意図的
+    "vitest/no-importing-vitest-globals": "off",
+    // 全テストに expect.hasAssertions() を強制する。vitest/expect-expect で十分
+    "vitest/prefer-expect-assertions": "off",
+    // Node ビルトインの利用は設定・スクリプト・テストで正当
+    "import/no-nodejs-modules": "off"
+  },
+
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.test-d.ts", "**/*.spec.ts", "**/test/**"],
+      "rules": {
+        "max-lines": "off",
+        "max-lines-per-function": "off",
+        "max-nested-callbacks": "off",
+        "max-statements": "off",
+        "typescript/no-non-null-assertion": "off",
+        "typescript/explicit-module-boundary-types": "off",
+        "node/no-sync": "off",
+        // テストのセットアップは副作用 import が正当（matcher の登録など）
+        "import/no-unassigned-import": "off",
+        // テスト内のインラインの配列・オブジェクトは再レンダリング性能に無関係
+        "react-perf/jsx-no-new-array-as-prop": "off",
+        "react-perf/jsx-no-new-object-as-prop": "off"
+      }
+    },
+    {
+      "files": ["**/*.config.ts", "**/*.config.mjs"],
+      "rules": {
+        "import/no-default-export": "off"
+      }
+    },
+    {
+      "files": ["scripts/**/*.ts"],
+      "rules": {
+        "no-console": "off",
+        "node/no-sync": "off",
+        "max-statements": "off",
+        // 計測スクリプトはローカル/CI で動く Node プロセスなので環境変数を読んでよい
+        "node/no-process-env": "off"
+      }
+    }
+  ]
+}

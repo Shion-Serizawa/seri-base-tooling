@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/index.ts!",
+    "src/fitness/run.ts!",
+    "src/fitness/supply-chain.ts!",
+    "src/git/check-commit-message.ts!",
+    "src/vitest-config/index.ts!",
+    "src/**/*.test.ts",
+    "src/test/**",
+    "vitest.config.ts"
+  ],
+  "project": ["src/**/*.ts!", "vitest.config.ts"],
+  "ignore": ["src/tsconfig/**"]
+}

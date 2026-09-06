@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+
+  // ---------------------------------------------------------------------------
+  // ルール本体は src/oxlint/base.json にある（このパッケージが配っているもの）。
+  // 配る側が自分で守れていない状態を作らないため、自分にも同じものを適用する。
+  //
+  // 派生リポジトリでは `./node_modules/@seri/base-tooling/src/oxlint/base.json` を
+  // extends する。ここだけ相対パスが違う。
+  // ---------------------------------------------------------------------------
+  "extends": ["./src/oxlint/base.json"],
+
+  "overrides": [
+    {
+      // base.json は計測スクリプトを `scripts/**` に置く前提で緩和している。
+      // このパッケージは同じコードを `src/**` に持つので、同じ緩和をここで与える。
+      "files": ["src/**/*.ts"],
+      "rules": {
+        "no-console": "off",
+        "node/no-sync": "off",
+        "max-statements": "off",
+        "node/no-process-env": "off"
+      }
+    }
+  ],
+
+  // extends では継承されないため（実測）、適用範囲はルートに置く。
+  // ⑪ が LINT_IGNORE_PATTERNS と完全一致で固定している。
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/coverage/**",
+    "**/reports/**",
+    "**/.wrangler/**",
+    "**/.turbo/**",
+    "**/.stryker-tmp/**",
+    "**/node_modules/**",
+    "**/*.gen.ts",
+    "**/routeTree.gen.ts",
+    "**/worker-configuration.d.ts"
+  ]
+}

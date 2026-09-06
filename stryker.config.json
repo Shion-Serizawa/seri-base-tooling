@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "変更ファイルのみを対象に CI で実行する。実行は scripts/mutation/run-changed.ts が各ワークスペースの cwd で行うため、plugins / ignorePatterns はワークスペース（深さ2）からの相対で書いている。ignorePatterns で tsconfig.json を除くのは、Stryker の tsconfig 前処理が TypeScript 7 の JS API 不在で失敗するため。しきい値は @seri/quality-gates と一致していることを tooling/quality-gates のテストが検証する。",
+  "testRunner": "vitest",
+  "reporters": ["clear-text", "progress"],
+  "coverageAnalysis": "perTest",
+  "ignoreStatic": true,
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": true,
+  "thresholds": {
+    "high": 80,
+    "low": 70,
+    "break": 60
+  },
+  "vitest": {
+    "configFile": "vitest.config.ts",
+    "related": false
+  },
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "ignorePatterns": ["**/tsconfig.json"]
+}

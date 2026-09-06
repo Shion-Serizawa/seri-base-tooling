@@ -1,0 +1,51 @@
+{
+  "name": "@seri/base-tooling",
+  "version": "0.1.0",
+  "private": true,
+  "description": "seri-base-ts-project とその派生が共有する品質ゲート（ADR 0010 の A 層）",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fitness": "./src/fitness/framework.ts",
+    "./fitness/context": "./src/fitness/lib/context.ts",
+    "./fitness/report": "./src/fitness/lib/report.ts",
+    "./fitness/exec": "./src/fitness/lib/exec.ts",
+    "./fitness/bin": "./src/fitness/lib/bin.ts",
+    "./fitness/walk": "./src/fitness/lib/walk.ts",
+    "./fitness/compare": "./src/fitness/lib/compare.ts",
+    "./fitness/oxlint-config": "./src/fitness/lib/oxlint-config.ts",
+    "./git/commit-message": "./src/git/commit-message.ts",
+    "./oxlint": "./src/oxlint/base.json",
+    "./tsconfig/*": "./src/tsconfig/*",
+    "./vitest": "./src/vitest-config/index.ts",
+    "./test": "./src/test/temp-repo.ts"
+  },
+  "scripts": {
+    "fitness": "bun run src/fitness/run.ts",
+    "fitness:deps": "bun run src/fitness/supply-chain.ts",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "jscpd": "jscpd",
+    "knip": "knip",
+    "lint": "oxlint --type-aware",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "@vitest/coverage-v8": "4.1.10",
+    "jscpd": "5.0.16",
+    "knip": "6.32.2",
+    "oxfmt": "0.64.0",
+    "oxlint": "1.79.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "typescript": "7.0.2",
+    "vite": "8.2.1",
+    "vitest": "4.1.10"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "bun@1.4.0"
+}
